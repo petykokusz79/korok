@@ -11,7 +11,8 @@
 - a csúcsok jelölése 1-től számozva történik
 
 #### A bemenet felépítése:
-- az első sorban a csúcsok `N` száma és az élek `M` száma szerepel, szóközzel elválasztva
+- a csúcsok `N` száma a kódban van feltüntetve a tömbök méretének megadása miatt
+- az első sorban az élek `M` száma szerepel
   - a jelenlegi (és feltehetően végleges) gráfra igaz, hogy `N`<`M`<256
 - a következő `M` sorban egy-egy él `K` kezdőpontja, `V` végpontja, illetve `H` hossza szerepel, szóközzel elválasztva
   - minden élre igaz, hogy `K`>`V`, illetve `H`<600
