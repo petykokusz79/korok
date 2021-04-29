@@ -2,6 +2,7 @@
 #include <fstream>
 #include <algorithm>
 #include <vector>
+#include <queue>
 
 using namespace std;
 
@@ -18,7 +19,7 @@ struct route {
 	vector<unsigned char> nodeS;
 };
 
-pair<vector<unsigned char>, int> routeS[array_size]; // route, index in "HEAP_routeS"
+vector<unsigned char> routeS[array_size];
 int HEAP_count = 0;
 pair<int, int> HEAP_routeS[array_size + 1]; // length, index in "routeS"
 void HEAP_load() {
@@ -35,15 +36,14 @@ void HEAP_push(route &r) {
 	int place = HEAP_routeS[index].second; // "routeS"-beli szabad hely mentése
 	while (index != 1 && HEAP_routeS[index / 2].first > r.length) {
 		HEAP_routeS[index] = HEAP_routeS[index / 2]; // fentebbi süllyesztése
-		routeS[HEAP_routeS[index].second].second = index; // fentebbi "HEAP_routeS"-beli indexének átírása "routeS"-ban
 		index /= 2;
 	}
 	HEAP_routeS[index] = { r.length, place }; // új elem helyreillesztése
-	routeS[place] = { r.nodeS, index }; // új elem "routeS"-ba rakása
+	routeS[place] = r.nodeS; // új elem "routeS"-ba rakása
 }
 void HEAP_pop(route &result) {
 	int place = HEAP_routeS[1].second; // "routeS"-beli hely
-	result = { HEAP_routeS[1].first, routeS[place].first }; // eredmény mentése
+	result = { HEAP_routeS[1].first, routeS[place] }; // eredmény mentése
 	--HEAP_count;
 	if (HEAP_count == 0) {
 		return;
@@ -55,18 +55,76 @@ void HEAP_pop(route &result) {
 			break;
 		}
 		HEAP_routeS[index] = HEAP_routeS[index * 2 + shorter_child]; // rövidebb gyerek emelése
-		routeS[HEAP_routeS[index].second].second = index; // rövidebb gyerek "HEAP_routeS"-beli indexének átírása "routeS"-ban
 		index = index * 2 + shorter_child;
 	}
 	HEAP_routeS[index] = HEAP_routeS[HEAP_count + 1]; // utolsó elem helyreillesztése
-	routeS[HEAP_routeS[index].second].second = index; // utolsó elem "HEAP_routeS"-beli indexének átírása "routeS"-ban
 	HEAP_routeS[HEAP_count + 1].second = place; // "routeS"-ban felszabadult hely kupacelemhez rendelése
+}
+
+void generate_edges(int edges, vector<vector<edge>> &edgeS) {
+	// --- Beolvasott éllistából szomszédsági mátrix --- //
+	vector<vector<int>> edge_betweenS(nodes + 1, vector<int>(nodes + 1));
+	for (int i = 0; i < edges; i++) {
+		int s, e, w;
+		cin >> s >> e >> w;
+		edge_betweenS[s][e] = edge_betweenS[e][s] = w;
+	}
+	// --- Zsákélek törlése --- //
+	for (int i = 1; i <= nodes; i++) {
+		for (int j = i + 1; j <= nodes; j++) {
+			if (edge_betweenS[i][j] != 0) {
+				// --- Kiválasztott él törlése --- //
+				int length = edge_betweenS[i][j];
+				edge_betweenS[i][j] = edge_betweenS[j][i] = 0;
+				// --- Az 1-es csúcsot tartalmazó komponens szélességi bejárása --- //
+				vector<bool> visitedS(nodes + 1);
+				queue<unsigned char> currentS;
+				currentS.push(1);
+				visitedS[1] = true;
+				while (!currentS.empty()) {
+					for (int k = 1; k <= nodes; k++) {
+						if (edge_betweenS[currentS.front()][k] != 0 && !visitedS[k]) {
+							currentS.push(k);
+							visitedS[k] = true;
+						}
+					}
+					currentS.pop();
+				}
+				// --- Kiválasztott él visszaírása --- //
+				edge_betweenS[i][j] = edge_betweenS[j][i] = length;
+				// --- Az elõzõleg nem bejárt csúcsokat érintõ élek törlése --- //
+				for (int k = 1; k <= nodes; k++) {
+					if (!visitedS[k]) {
+						for (int l = 1; l <= nodes; l++) {
+							edge_betweenS[k][l] = edge_betweenS[l][k] = 0;
+						}
+					}
+				}
+			}
+		}
+	}
+	// --- Szomszédsági lista felépítése a szomszédsági mátrix alapján --- //
+	for (int i = 1; i <= nodes; i++) {
+		for (int j = i; j <= nodes; j++) {
+			if (edge_betweenS[i][j] != 0) {
+				edgeS[i].push_back({ (unsigned char)j, edge_betweenS[i][j] });
+				edgeS[j].push_back({ (unsigned char)i, edge_betweenS[i][j] });
+			}
+		}
+	}
+	// --- Szomszédsági lista adott csúcsból kiinduló éleinek rendezése növekvõ hossz szerint --- //
+	for (auto &e : edgeS) {
+		sort(e.begin(), e.end(), [](edge a, edge b) {
+			return a.weight < b.weight;
+		});
+	}
 }
 
 int main() {
 	cin.sync_with_stdio(false);
 	cin.tie(nullptr);
 
+	// --- Gráf felépítése a beolvasott éllistából --- //
 	int edges;
 	cin >> edges;
 	if (edges > 255) {
@@ -74,40 +132,35 @@ int main() {
 		return 0;
 	}
 	vector<vector<edge>> edgeS(nodes + 1);
-	for (int i = 0; i < edges; i++) {
-		int s, e, w;
-		cin >> s >> e >> w;
-		edgeS[s].push_back({ (unsigned char)e, w });
-		edgeS[e].push_back({ (unsigned char)s, w });
-	}
-	for (auto &e : edgeS) {
-		sort(e.begin(), e.end(), [](edge a, edge b) {
-			return a.weight < b.weight;
-		});
-	}
+	generate_edges(edges, edgeS);
 
 	ofstream f("output.txt");
 	int answers = 0;
 	HEAP_load();
-	route c = { edgeS[1][0].weight, { 1, 2 } };
+	route c = { edgeS[1][0].weight, { 2 } };
 	HEAP_push(c);
 	while (HEAP_count > 0) {
+		// --- Útvonal kivétele a prioritási sorból --- //
 		HEAP_pop(c);
-		if (c.nodeS.back() == 1) {
+		// --- Megtalált útvonal visszaadása --- //
+		if (c.nodeS.back() == 3) {
+			c.length += edgeS[1][1].weight;
 			cout << ++answers << " " << c.length << " " << HEAP_count << '\n';
-			f << c.length << '\n';
+			f << c.length << '\n' << 1 << " ";
 			for (auto e : c.nodeS) {
 				f << (int)e << " ";
 			}
-			f << '\n';
+			f << 1 << '\n';
 			continue;
 		}
-		unsigned char last = c.nodeS.back();
+		// --- Kivett útvonal érintett éleinek mátrixba írása --- //
 		bool visitedS[nodes + 1][nodes + 1] = {};
+		visitedS[1][2] = visitedS[2][1] = true;
 		for (int i = 1; i < c.nodeS.size(); i++) {
-			visitedS[c.nodeS[i]][c.nodeS[i - 1]] = true;
-			visitedS[c.nodeS[i - 1]][c.nodeS[i]] = true;
+			visitedS[c.nodeS[i]][c.nodeS[i - 1]] = visitedS[c.nodeS[i - 1]][c.nodeS[i]] = true;
 		}
+		// --- Kivett útvonal utolsó csúcsából továbbinduló utak prioritási sorba rakása --- //
+		unsigned char last = c.nodeS.back();
 		for (auto &e : edgeS[last]) {
 			if (!visitedS[last][e.end]) {
 				c.nodeS.push_back(e.end);

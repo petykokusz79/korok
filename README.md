@@ -15,10 +15,10 @@
 - az első sorban az élek `M` száma szerepel
   - a jelenlegi (és feltehetően végleges) gráfra igaz, hogy `N`<`M`<256
 - a következő `M` sorban egy-egy él `K` kezdőpontja, `V` végpontja, illetve `H` hossza szerepel, szóközzel elválasztva
-  - minden élre igaz, hogy `K`>`V`, illetve `H`<600
+  - minden élre igaz, hogy `K`>`V`, illetve 0<`H`<600
 
 #### Egyéb jellemzők:
-- a kiinduló csúcs az 1-es számú, szomszédjai a 2-es és a 3-mas számú csúcsok
+- a kiinduló csúcs az 1-es számú, két szomszédja közül a közelebbi a 2-es számú, a távolabbi a 3-mas számú csúcs
 - egy útvonal mindig a 2-es számú csúcsot érinti először
 - létezik a feltételeknek megfelelő útvonal
 - az összes útvonal visszaadása a gyakorlatban nem megoldható, így a cél *minél több* eredmény kiszámítása
