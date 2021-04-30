@@ -61,7 +61,10 @@ void HEAP_pop(route &result) {
 	HEAP_routeS[HEAP_count + 1].second = place; // "routeS"-ban felszabadult hely kupacelemhez rendelése
 }
 
-void generate_edges(int edges, vector<vector<edge>> &edgeS) {
+int edges;
+vector<vector<edge>> edgeS(nodes + 1);
+
+void generate_edges() {
 	// --- Beolvasott éllistából szomszédsági mátrix --- //
 	vector<vector<int>> edge_betweenS(nodes + 1, vector<int>(nodes + 1));
 	for (int i = 0; i < edges; i++) {
@@ -120,21 +123,7 @@ void generate_edges(int edges, vector<vector<edge>> &edgeS) {
 	}
 }
 
-int main() {
-	cin.sync_with_stdio(false);
-	cin.tie(nullptr);
-
-	// --- Gráf felépítése a beolvasott éllistából --- //
-	int edges;
-	cin >> edges;
-	if (edges > 255) {
-		cout << "Sok.\n";
-		return 0;
-	}
-	vector<vector<edge>> edgeS(nodes + 1);
-	generate_edges(edges, edgeS);
-
-	ofstream f("output.txt");
+void find_routes(ofstream &f) {
 	int answers = 0;
 	HEAP_load();
 	route c = { edgeS[1][0].weight, { 2 } };
@@ -142,7 +131,7 @@ int main() {
 	while (HEAP_count > 0) {
 		// --- Útvonal kivétele a prioritási sorból --- //
 		HEAP_pop(c);
-		// --- Megtalált útvonal visszaadása --- //
+		// --- Megtalált útvonal fájlba írása --- //
 		if (c.nodeS.back() == 3) {
 			c.length += edgeS[1][1].weight;
 			cout << ++answers << " " << c.length << " " << HEAP_count << '\n';
@@ -163,6 +152,51 @@ int main() {
 		unsigned char last = c.nodeS.back();
 		for (auto &e : edgeS[last]) {
 			if (!visitedS[last][e.end]) {
+				// --- Szélességi bejárás annak vizsgálatára, hogy a továbbinduló út körbeérhet-e --- //
+				visitedS[last][e.end] = visitedS[e.end][last] = true;
+				unsigned char bfs_visitedS[nodes + 1] = {};
+				queue<unsigned char> from_firstS;
+				from_firstS.push(1);
+				queue<unsigned char> from_lastS;
+				from_lastS.push(e.end);
+				bool circle = false;
+				while (!from_firstS.empty() && !from_lastS.empty()) {
+					unsigned char c = from_firstS.front();
+					for (auto e : edgeS[c]) {
+						if (bfs_visitedS[e.end] == 2) {
+							circle = true;
+							break;
+						}
+						if (!visitedS[c][e.end] && bfs_visitedS[e.end] == 0) {
+							from_firstS.push(e.end);
+							bfs_visitedS[e.end] = 1;
+						}
+					}
+					from_firstS.pop();
+					if (circle) {
+						break;
+					}
+					c = from_lastS.front();
+					for (auto e : edgeS[c]) {
+						if (bfs_visitedS[e.end] == 1) {
+							circle = true;
+							break;
+						}
+						if (!visitedS[c][e.end] && bfs_visitedS[e.end] == 0) {
+							from_lastS.push(e.end);
+							bfs_visitedS[e.end] = 2;
+						}
+					}
+					from_lastS.pop();
+					if (circle) {
+						break;
+					}
+				}
+				visitedS[last][e.end] = visitedS[e.end][last] = false;
+				// --- Ha az út körbeérhet, akkor prioritási sorba rakás --- //
+				if (!circle) {
+					continue;
+				}
 				c.nodeS.push_back(e.end);
 				c.length += e.weight;
 				HEAP_push(c);
@@ -171,5 +205,22 @@ int main() {
 			}
 		}
 	}
+}
+
+int main() {
+	cin.sync_with_stdio(false);
+	cin.tie(nullptr);
+
+	// --- Gráf felépítése a beolvasott éllistából --- //
+	cin >> edges;
+	if (edges > 255) {
+		cout << "Sok.\n";
+		return 0;
+	}
+	generate_edges();
+
+	// --- Útvonalak visszaadása --- //
+	ofstream f("output.txt");
+	find_routes(f);
 	f.close();
 }
