@@ -16,6 +16,7 @@
   - a jelenlegi (és feltehetően végleges) gráfra igaz, hogy `N`<`M`<256
 - a következő `M` sorban egy-egy él `K` kezdőpontja, `V` végpontja, illetve `H` hossza szerepel, szóközzel elválasztva
   - minden élre igaz, hogy `K`>`V`, illetve 0<`H`<600
+  - ∑`H[1..M]`<65536
 
 #### Egyéb jellemzők:
 - a kiinduló csúcs az 1-es számú, két szomszédja közül a közelebbi a 2-es számú, a távolabbi a 3-mas számú csúcs
