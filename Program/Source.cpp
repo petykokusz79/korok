@@ -15,6 +15,7 @@ struct edge {
 	unsigned short weight;
 };
 
+ofstream o("output.txt");
 int routes_count = 0;
 pair<unsigned char, int> routeS[routes_size + 1]; // last, index of previous
 
@@ -23,6 +24,7 @@ pair<int, int> HEAP_routeS[HEAP_size + 1]; // length, index in "routeS"
 void HEAP_push(unsigned short length, unsigned char last, int previous) {
 	if (HEAP_count == HEAP_size || routes_count == routes_size) {
 		cout << "Megtelt. " << HEAP_count << " " << routes_count << '\n';
+		o << endl;
 		exit(0);
 	}
 	int index = ++HEAP_count; // index a végén
@@ -114,14 +116,14 @@ void generate_edges() {
 	}
 }
 
-void write_route(ofstream &f, int index) {
+void write_route(int index) {
 	if (index != 0) {
-		write_route(f, routeS[index].second);
+		write_route(routeS[index].second);
 	}
-	f << (int)routeS[index].first << " ";
+	o << (int)routeS[index].first << " ";
 }
 
-void find_routes(ofstream &f) {
+void find_routes() {
 	int answers = 0;
 	routeS[0] = { 1, 0 };
 	pair<unsigned short, int> c;
@@ -133,9 +135,9 @@ void find_routes(ofstream &f) {
 		if (routeS[c.second].first == 1) {
 			HEAP_max = max(HEAP_max, HEAP_count);
 			cout << ++answers << " " << c.first << " " << HEAP_count << " " << routes_count << '\n';
-			f << c.first << '\n';
-			write_route(f, c.second);
-			f << '\n';
+			o << c.first << '\n';
+			write_route(c.second);
+			o << '\n';
 			continue;
 		}
 		// --- Kivett útvonal érintett éleinek mátrixba írása --- //
@@ -151,52 +153,57 @@ void find_routes(ofstream &f) {
 		last = routeS[c.second].first;
 		for (auto &e : edgeS[last]) {
 			if (!visitedS[last][e.end]) {
+				// --- 1-es csúcsba vezetõ szakasz prioritási sorba rakása --- //
+				if (e.end == 1) {
+					HEAP_push(c.first + e.weight, e.end, c.second);
+					continue;
+				}
 				// --- Szélességi bejárás annak vizsgálatára, hogy a továbbinduló út körbeérhet-e --- //
 				visitedS[last][e.end] = visitedS[e.end][last] = true;
-				unsigned char bfs_visitedS[nodes + 1] = { 0, 1, 0, 2 }; // $?
+				unsigned char bfs_visitedS[nodes + 1] = {};
 				queue<unsigned char> from_firstS;
 				from_firstS.push(1);
+				bfs_visitedS[1] = 1;
 				queue<unsigned char> from_lastS;
 				from_lastS.push(e.end);
+				bfs_visitedS[e.end] = 2;
 				bool circle = false;
 				while (!from_firstS.empty() && !from_lastS.empty()) {
 					unsigned char bfs_c = from_firstS.front();
-					for (auto e : edgeS[bfs_c]) {
-						if (bfs_visitedS[e.end] == 2) {
+					for (auto f : edgeS[bfs_c]) {
+						if (bfs_visitedS[f.end] == 2) {
 							circle = true;
 							break;
 						}
-						if (!visitedS[bfs_c][e.end] && bfs_visitedS[e.end] == 0) {
-							from_firstS.push(e.end);
-							bfs_visitedS[e.end] = 1;
+						if (!visitedS[bfs_c][f.end] && bfs_visitedS[f.end] == 0) {
+							from_firstS.push(f.end);
+							bfs_visitedS[f.end] = 1;
 						}
+					}
+					if (circle) {
+						break;
 					}
 					from_firstS.pop();
-					if (circle) {
-						break;
-					}
 					bfs_c = from_lastS.front();
-					for (auto e : edgeS[bfs_c]) {
-						if (bfs_visitedS[e.end] == 1) {
+					for (auto f : edgeS[bfs_c]) {
+						if (bfs_visitedS[f.end] == 1) {
 							circle = true;
 							break;
 						}
-						if (!visitedS[bfs_c][e.end] && bfs_visitedS[e.end] == 0) {
-							from_lastS.push(e.end);
-							bfs_visitedS[e.end] = 2;
+						if (!visitedS[bfs_c][f.end] && bfs_visitedS[f.end] == 0) {
+							from_lastS.push(f.end);
+							bfs_visitedS[f.end] = 2;
 						}
 					}
-					from_lastS.pop();
 					if (circle) {
 						break;
 					}
+					from_lastS.pop();
 				}
-				visitedS[last][e.end] = visitedS[e.end][last] = false;
 				// --- Ha az út körbeérhet, akkor prioritási sorba rakás --- //
-				if (!circle) {
-					continue;
+				if (circle) {
+					HEAP_push(c.first + e.weight, e.end, c.second);
 				}
-				HEAP_push(c.first + e.weight, e.end, c.second);
 			}
 		}
 	}
@@ -215,8 +222,7 @@ int main() {
 	generate_edges();
 
 	// --- Útvonalak visszaadása --- //
-	ofstream f("output.txt");
-	find_routes(f);
-	f.close();
+	find_routes();
+	o.close();
 	cout << HEAP_max << '\n';
 }
