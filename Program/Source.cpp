@@ -18,6 +18,7 @@ struct edge {
 ofstream o("output.txt");
 int routes_count = 0;
 pair<unsigned char, int> routeS[routes_size + 1]; // last, index of previous
+vector<unsigned short> distance_from_startS(nodes + 1, USHRT_MAX);
 
 int HEAP_count = 0;
 pair<int, int> HEAP_routeS[HEAP_size + 1]; // length, index in "routeS"
@@ -27,6 +28,7 @@ void HEAP_push(unsigned short length, unsigned char last, int previous) {
 		o << endl;
 		exit(0);
 	}
+	length += distance_from_startS[last]; // prioritás legrövidebb körre vonatkozó alsó becslés alapján
 	int index = ++HEAP_count; // index a végén
 	while (index != 1 && HEAP_routeS[index / 2].first > length) {
 		HEAP_routeS[index] = HEAP_routeS[index / 2]; // fentebbi süllyesztése
@@ -36,12 +38,13 @@ void HEAP_push(unsigned short length, unsigned char last, int previous) {
 	routeS[routes_count] = { last, previous }; // új elem "routeS"-ba rakása
 }
 void HEAP_pop(pair<unsigned short, int> &result) { // length, index in "routeS"
-	result = HEAP_routeS[1]; // eredmény mentése
+	int index = HEAP_routeS[1].second;
+	result = { HEAP_routeS[1].first - distance_from_startS[routeS[index].first], index }; // eredmény mentése a prioritási becslés kivonásával
 	--HEAP_count;
 	if (HEAP_count == 0) {
 		return;
 	}
-	int index = 1; // index az elején
+	index = 1; // index az elején
 	while (index * 2 <= HEAP_count) {
 		int shorter_child = index * 2 == HEAP_count ? 0 : HEAP_routeS[index * 2 + 1].first < HEAP_routeS[index * 2].first ? 1 : 0; // rövidebb gyerek
 		if (HEAP_routeS[index * 2 + shorter_child].first >= HEAP_routeS[HEAP_count + 1].first) { // nem süllyeszhetõ
@@ -113,6 +116,26 @@ void generate_edges() {
 		sort(e.begin(), e.end(), [](edge a, edge b) {
 			return a.weight < b.weight;
 		});
+	}
+}
+
+void dijkstra(int n) {
+	distance_from_startS[n] = 0;
+	priority_queue<pair<unsigned short, unsigned char>, vector<pair<unsigned short, unsigned char>>, greater<pair<unsigned short, unsigned char>>> currentS;
+	currentS.push({ 0, n });
+	while (!currentS.empty()) {
+		unsigned short length = currentS.top().first;
+		unsigned char node = currentS.top().second;
+		currentS.pop();
+		if (length != distance_from_startS[node]) { // már van rövidebb út a csúcsba
+			continue;
+		}
+		for (auto e : edgeS[node]) {
+			if (distance_from_startS[node] + e.weight < distance_from_startS[e.end]) {
+				distance_from_startS[e.end] = distance_from_startS[node] + e.weight;
+				currentS.push({ distance_from_startS[e.end], e.end });
+			}
+		}
 	}
 }
 
@@ -222,6 +245,7 @@ int main() {
 	generate_edges();
 
 	// --- Útvonalak visszaadása --- //
+	dijkstra(1);
 	find_routes();
 	o.close();
 	cout << HEAP_max << '\n';
