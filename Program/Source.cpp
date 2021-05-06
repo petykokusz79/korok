@@ -7,7 +7,7 @@
 using namespace std;
 
 const int routes_size = 190000000;
-const int HEAP_size = 50000000;
+const int HEAP_size = 10000000;
 const int nodes = 87;
 
 struct edge {
@@ -16,12 +16,23 @@ struct edge {
 };
 
 ofstream o("output.txt");
-int routes_count = 0;
-pair<unsigned char, int> routeS[routes_size + 1]; // last, index of previous
 vector<unsigned short> distance_from_startS(nodes + 1, USHRT_MAX);
 
+fstream r("routes.txt", ios::binary | ios::in | ios::out | ios::trunc);
+int routes_count = 0;
+void write(pair<unsigned char, int> route) { // last, index of previous
+	r.seekp(routes_count * sizeof(pair<unsigned char, int>));
+	r.write((char*)&route, sizeof(pair<unsigned char, int>));
+}
+pair<unsigned char, int> read(int index) { // last, index of previous
+	pair<unsigned char, int> result;
+	r.seekg(index * sizeof(pair<unsigned char, int>));
+	r.read((char*)&result, sizeof(pair<unsigned char, int>));
+	return result;
+}
+
 int HEAP_count = 0;
-pair<int, int> HEAP_routeS[HEAP_size + 1]; // length, index in "routeS"
+pair<int, int> HEAP_routeS[HEAP_size + 1]; // length, index in "r"
 void HEAP_push(unsigned short length, unsigned char last, int previous) {
 	if (HEAP_count == HEAP_size || routes_count == routes_size) {
 		cout << "Megtelt. " << HEAP_count << " " << routes_count << '\n';
@@ -35,11 +46,11 @@ void HEAP_push(unsigned short length, unsigned char last, int previous) {
 		index /= 2;
 	}
 	HEAP_routeS[index] = { length, ++routes_count }; // új elem helyreillesztése
-	routeS[routes_count] = { last, previous }; // új elem "routeS"-ba rakása
+	write({ last, previous }); // új elem fájlba írása rakása
 }
-void HEAP_pop(pair<unsigned short, int> &result) { // length, index in "routeS"
+void HEAP_pop(pair<unsigned short, int> &result) { // length, index in "r"
 	int index = HEAP_routeS[1].second;
-	result = { HEAP_routeS[1].first - distance_from_startS[routeS[index].first], index }; // eredmény mentése a prioritási becslés kivonásával
+	result = { HEAP_routeS[1].first - distance_from_startS[read(index).first], index }; // eredmény mentése a prioritási becslés kivonásával
 	--HEAP_count;
 	if (HEAP_count == 0) {
 		return;
@@ -141,21 +152,21 @@ void dijkstra(int n) {
 
 void write_route(int index) {
 	if (index != 0) {
-		write_route(routeS[index].second);
+		write_route(read(index).second);
 	}
-	o << (int)routeS[index].first << " ";
+	o << (int)read(index).first << " ";
 }
 
 void find_routes() {
 	int answers = 0;
-	routeS[0] = { 1, 0 };
+	write({ 1, 0 });
 	pair<unsigned short, int> c;
 	HEAP_push(edgeS[1][0].weight, 2, 0);
 	while (HEAP_count > 0) {
 		// --- Útvonal kivétele a prioritási sorból --- //
 		HEAP_pop(c);
 		// --- Megtalált útvonal fájlba írása --- //
-		if (routeS[c.second].first == 1) {
+		if (read(c.second).first == 1) {
 			HEAP_max = max(HEAP_max, HEAP_count);
 			cout << ++answers << " " << c.first << " " << HEAP_count << " " << routes_count << '\n';
 			o << c.first << '\n';
@@ -165,15 +176,15 @@ void find_routes() {
 		}
 		// --- Kivett útvonal érintett éleinek mátrixba írása --- //
 		bool visitedS[nodes + 1][nodes + 1] = {};
-		unsigned char last = routeS[c.second].first;
-		int previous = routeS[c.second].second;
+		unsigned char last = read(c.second).first;
+		int previous = read(c.second).second;
 		while (last != 1) {
-			visitedS[last][routeS[previous].first] = visitedS[routeS[previous].first][last] = true;
-			last = routeS[previous].first;
-			previous = routeS[previous].second;
+			visitedS[last][read(previous).first] = visitedS[read(previous).first][last] = true;
+			last = read(previous).first;
+			previous = read(previous).second;
 		}
 		// --- Kivett útvonal utolsó csúcsából továbbinduló utak prioritási sorba rakása --- //
-		last = routeS[c.second].first;
+		last = read(c.second).first;
 		for (auto &e : edgeS[last]) {
 			if (!visitedS[last][e.end]) {
 				// --- 1-es csúcsba vezetõ szakasz prioritási sorba rakása --- //
@@ -247,6 +258,7 @@ int main() {
 	// --- Útvonalak visszaadása --- //
 	dijkstra(1);
 	find_routes();
+	r.close();
 	o.close();
 	cout << HEAP_max << '\n';
 }
